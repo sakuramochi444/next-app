@@ -1,3 +1,4 @@
+import 'dotenv/config'; // Explicitly load .env file at the top
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
@@ -8,6 +9,11 @@ declare global {
 }
 
 const connectionString = process.env.DATABASE_URL;
+
+// Add a check to ensure connectionString is available
+if (!connectionString) {
+  throw new Error('DATABASE_URL environment variable is not set.');
+}
 
 // Use a connection pool for the database
 const pool = new Pool({ connectionString });

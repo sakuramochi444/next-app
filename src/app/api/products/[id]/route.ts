@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 
 // GET a single product by ID
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const product = await prisma.product.findUnique({
       where: { id },
@@ -20,23 +20,25 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 // UPDATE a product by ID
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
-    const { name, description, quantity } = await request.json();
+    const { name, description, quantity, requiredQuantity } = await request.json();
 
     const updatedProduct = await prisma.product.update({
       where: { id },
       data: {
         name,
         description,
-        quantity: quantity ? parseInt(quantity, 10) : undefined,
+        quantity: quantity !== undefined ? parseInt(quantity, 10) : undefined,
+        requiredQuantity: requiredQuantity !== undefined ? parseInt(requiredQuantity, 10) : undefined,
       },
     });
     return NextResponse.json(updatedProduct);
   } catch (error) {
     console.error(`Error updating product with ID ${id}:`, error);
-    if (error.code === 'P2025') { // Prisma error code for record not found
+    const e = error as { code?: string };
+    if (e.code === 'P2025') { // Prisma error code for record not found
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Failed to update product' }, { status: 500 });
@@ -44,8 +46,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 }
 
 // DELETE a product by ID
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     await prisma.product.delete({
       where: { id },
@@ -53,7 +55,8 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     return new NextResponse(null, { status: 204 }); // No content for successful deletion
   } catch (error) {
     console.error(`Error deleting product with ID ${id}:`, error);
-    if (error.code === 'P2025') { // Prisma error code for record not found
+    const e = error as { code?: string };
+    if (e.code === 'P2025') { // Prisma error code for record not found
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 });

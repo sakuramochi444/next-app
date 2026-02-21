@@ -27,11 +27,12 @@ const RootLayout: React.FC<Props> = (props) => {
   const { children } = props;
   return (
     <html lang="ja" className={`${dmSerif.variable} ${dmSans.variable}`}>
-      <body className="bg-gray-100 text-gray-900 antialiased">
+      <body className="antialiased selection:bg-retro-highlight selection:text-retro-secondary">
         <Toaster position="bottom-right" />
         <main>{children}</main>
-        <footer className="py-6 text-center text-sm text-gray-500">
-          © {new Date().getFullYear()} Stock Management App
+        <footer className="py-10 text-center text-sm text-retro-secondary/40 border-t border-retro-secondary/5 mt-auto">
+          <p className="font-serif">Inventory Archive System</p>
+          <p className="mt-1">© {new Date().getFullYear()} Club Equipment Manager</p>
         </footer>
       </body>
     </html>
