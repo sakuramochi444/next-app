@@ -9,14 +9,10 @@ on:
 jobs:
   make_request:
     runs-on: ubuntu-latest
-    env:
-      TZ: "Asia/Tokyo"
-
     steps:
-      - name: Send HTTP GET request
+      - name: Send HTTP GET request to Supabase
         run: |
-          curl -X GET "https://next-4eqsni5ud-sakuramochis-projects-0675e93b.vercel.app/" -v --fail || exit 1
-
-      - name: Log request time
-        run: |
-          echo "Keep-alive ping completed at $(date)"
+          curl -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+          -v --fail
