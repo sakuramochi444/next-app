@@ -15,7 +15,9 @@ import {
   List as ListIcon, 
   X, 
   Save,
-  Archive
+  Archive,
+  Lock,
+  Unlock
 } from 'lucide-react';
 
 interface Equipment {
@@ -36,6 +38,38 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  
+  // Admin Authentication State
+  const [adminPassword, setAdminPassword] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
+  useEffect(() => {
+    // Check for saved password in localStorage
+    const savedPassword = localStorage.getItem('adminPassword');
+    if (savedPassword) {
+      setAdminPassword(savedPassword);
+      setIsAdmin(true);
+    }
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminPassword) {
+      localStorage.setItem('adminPassword', adminPassword);
+      setIsAdmin(true);
+      setShowLoginModal(false);
+      toast.success('編集モードになりました');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminPassword');
+    setAdminPassword('');
+    setIsAdmin(false);
+    setIsFormOpen(false);
+    toast.success('閲覧モードに戻りました');
+  };
 
   const fetchEquipment = async () => {
     setLoading(true);
@@ -68,14 +102,20 @@ const Home: React.FC = () => {
     e.preventDefault();
     const promise = fetch('/api/products', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-admin-password': adminPassword
+      },
       body: JSON.stringify({
         ...newEquipment,
         quantity: parseInt(newEquipment.quantity as string, 10),
         requiredQuantity: parseInt(newEquipment.requiredQuantity as string, 10) || 0
       }),
-    }).then(res => {
-      if (!res.ok) throw new Error('備品の追加に失敗しました');
+    }).then(async res => {
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('パスワードが正しくありません');
+        throw new Error('備品の追加に失敗しました');
+      }
       return res.json();
     });
 
@@ -87,7 +127,7 @@ const Home: React.FC = () => {
         setIsFormOpen(false);
         return '棚に新しい備品を追加しました！';
       },
-      error: (err) => `エラー: ${err.toString()}`,
+      error: (err) => `エラー: ${err.message}`,
     });
   };
 
@@ -97,14 +137,20 @@ const Home: React.FC = () => {
 
     const promise = fetch(`/api/products/${editingEquipment.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-admin-password': adminPassword
+      },
       body: JSON.stringify({
         ...editingEquipment,
         quantity: parseInt(editingEquipment.quantity as unknown as string, 10),
         requiredQuantity: parseInt(editingEquipment.requiredQuantity as unknown as string, 10)
       }),
-    }).then(res => {
-      if (!res.ok) throw new Error('備品の更新に失敗しました');
+    }).then(async res => {
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('パスワードが正しくありません');
+        throw new Error('備品の更新に失敗しました');
+      }
       return res.json();
     });
 
@@ -116,30 +162,48 @@ const Home: React.FC = () => {
         setIsFormOpen(false);
         return '備品の情報が更新されました！';
       },
-      error: (err) => `エラー: ${err.toString()}`,
+      error: (err) => `エラー: ${err.message}`,
     });
   };
 
   const handleDeleteEquipment = (id: string) => {
     if(!confirm('本当に削除しますか？')) return;
-    const promise = fetch(`/api/products/${id}`, { method: 'DELETE' });
+    const promise = fetch(`/api/products/${id}`, { 
+      method: 'DELETE',
+      headers: { 'x-admin-password': adminPassword }
+    }).then(res => {
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('パスワードが正しくありません');
+        throw new Error('削除に失敗しました');
+      }
+      return res;
+    });
+
     toast.promise(promise, {
       loading: '棚から取り出しています...',
       success: () => {
         fetchEquipment();
         return '備品を削除しました！';
       },
-      error: '備品の削除に失敗しました',
+      error: (err) => `エラー: ${err.message}`,
     });
   };
   
   const handleEditClick = (equipment: Equipment) => {
+    if (!isAdmin) {
+      setShowLoginModal(true);
+      return;
+    }
     setEditingEquipment(equipment);
     setIsFormOpen(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleQuickQuantityChange = async (equipment: Equipment, delta: number) => {
+    if (!isAdmin) {
+      setShowLoginModal(true);
+      return;
+    }
     const newQuantity = Math.max(0, equipment.quantity + delta);
     if (newQuantity === equipment.quantity) return;
 
@@ -149,7 +213,10 @@ const Home: React.FC = () => {
     try {
       const res = await fetch(`/api/products/${equipment.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword
+        },
         body: JSON.stringify({ quantity: newQuantity }),
       });
 
@@ -195,11 +262,24 @@ const Home: React.FC = () => {
               備品管理
             </h1>
             <p className="text-retro-secondary/60 flex items-center justify-center md:justify-start gap-2">
-              <Archive className="w-4 h-4" /> Storage Shelf Manager
+              <Archive className="w-4 h-4" /> 備品保管庫マネージャー
             </p>
           </div>
           
-          <div className="flex gap-4">
+          <div className="flex flex-wrap justify-center gap-4">
+            {/* Admin Status / Login Button */}
+            <button 
+              onClick={() => isAdmin ? handleLogout() : setShowLoginModal(true)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border-2 ${
+                isAdmin 
+                ? 'bg-retro-accent/10 border-retro-accent/20 text-retro-accent hover:bg-retro-accent/20' 
+                : 'bg-white border-retro-secondary/10 text-retro-secondary/60 hover:bg-retro-secondary/5'
+              }`}
+            >
+              {isAdmin ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+              {isAdmin ? '管理者（ログアウト）' : '管理者ログイン'}
+            </button>
+
              {/* Stats Cards */}
             <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-retro-secondary/5 flex items-center gap-3 min-w-[140px]">
                <div className="p-2 bg-retro-accent/20 rounded-lg text-retro-accent">
@@ -238,13 +318,19 @@ const Home: React.FC = () => {
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
              <button 
-               onClick={() => setIsFormOpen(!isFormOpen)}
+               onClick={() => {
+                 if (!isAdmin) {
+                   setShowLoginModal(true);
+                   return;
+                 }
+                 setIsFormOpen(!isFormOpen);
+               }}
                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold shadow-md transition-all active:scale-95 w-full sm:w-auto justify-center ${
                  isFormOpen ? 'bg-retro-secondary text-white' : 'bg-retro-primary text-white hover:bg-retro-primary/90'
                }`}
              >
                {isFormOpen ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-               {isFormOpen ? '閉じる' : '追加する'}
+               {isFormOpen ? '閉じる' : (isAdmin ? '追加する' : 'ログインして追加')}
              </button>
              
              <div className="flex bg-white p-1 rounded-xl border-2 border-retro-secondary/10 ml-auto sm:ml-2">
@@ -352,16 +438,20 @@ const Home: React.FC = () => {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-32 opacity-50">
              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-retro-primary mb-4"></div>
-             <p className="font-serif text-xl text-retro-secondary">Loading shelf...</p>
+             <p className="font-serif text-xl text-retro-secondary">棚を整理しています...</p>
           </div>
         ) : (
           <motion.div 
+            layout
             variants={containerVariants}
             initial="hidden"
             animate="visible"
+            transition={{ 
+              layout: { type: 'spring', stiffness: 200, damping: 25, mass: 0.5 } 
+            }}
             className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}
           >
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="popLayout" initial={false}>
               {filteredEquipment.map((equipment) => {
                 const isLowStock = equipment.quantity < equipment.requiredQuantity;
 
@@ -369,20 +459,23 @@ const Home: React.FC = () => {
                   return (
                     <motion.div
                       key={equipment.id}
-                      layout
+                      layoutId={`card-${equipment.id}`}
                       variants={itemVariants}
                       initial="hidden"
                       animate="visible"
                       exit="exit"
-                      className={`group flex items-center justify-between p-4 bg-white border-l-4 rounded-r-xl shadow-sm hover:shadow-md transition-all ${isLowStock ? 'border-retro-primary' : 'border-retro-accent'}`}
+                      transition={{ 
+                        layout: { type: 'spring', stiffness: 200, damping: 25, mass: 0.5 } 
+                      }}
+                      className={`group flex items-center justify-between p-4 bg-white border-l-4 rounded-r-xl shadow-sm hover:shadow-md transition-all overflow-hidden ${isLowStock ? 'border-retro-primary' : 'border-retro-accent'}`}
                     >
                       <div className="flex items-center gap-4 flex-1">
-                        <div className="flex items-center bg-retro-bg/50 rounded-lg p-1">
+                        <motion.div layout="position" className="flex items-center bg-retro-bg/50 rounded-lg p-1">
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleQuickQuantityChange(equipment, -1); }}
                             className="p-1 hover:text-retro-primary transition-colors"
                           >
-                            <Minus className="w-3 h-3" /> {/* ← X から Minus に変更 */}
+                            <Minus className="w-3 h-3" />
                           </button>
                           <div className={`w-12 h-8 flex items-center justify-center font-bold text-sm ${isLowStock ? 'text-retro-primary' : 'text-retro-accent'}`}>
                              {equipment.quantity}<span className="text-[10px] mx-0.5 opacity-40">/</span>{equipment.requiredQuantity}
@@ -393,10 +486,10 @@ const Home: React.FC = () => {
                           >
                             <Plus className="w-3 h-3" />
                           </button>
-                        </div>
+                        </motion.div>
                         <div>
-                          <h3 className="font-bold text-retro-secondary">{equipment.name}</h3>
-                          {equipment.description && <p className="text-sm text-retro-secondary/50">{equipment.description}</p>}
+                          <motion.h3 layout="position" className="font-bold text-retro-secondary">{equipment.name}</motion.h3>
+                          {equipment.description && <motion.p layout="position" className="text-sm text-retro-secondary/50">{equipment.description}</motion.p>}
                         </div>
                       </div>
                       
@@ -414,33 +507,46 @@ const Home: React.FC = () => {
 
                 // Grid View Card
                 return (
-                  <motion.div
+                  <div
                     key={equipment.id}
-                    layout
-                    variants={itemVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
                     className="relative group h-full"
                   >
                     {/* Shelf Shadow Base */}
-                    <div className="absolute top-2 left-2 w-full h-full bg-retro-secondary/5 rounded-2xl -z-10 transition-transform group-hover:translate-x-1 group-hover:translate-y-1 duration-300"></div>
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute top-2 left-2 w-full h-full bg-retro-secondary/5 rounded-2xl -z-10 transition-transform group-hover:translate-x-1 group-hover:translate-y-1 duration-300"
+                    ></motion.div>
 
-                    <div className={`relative flex flex-col h-full bg-white p-6 rounded-2xl border-2 transition-all duration-300 group-hover:-translate-y-1 ${
-                      isLowStock ? 'border-retro-primary/20 shadow-[0_0_20px_rgba(224,122,95,0.1)]' : 'border-retro-secondary/5 shadow-sm'
-                    }`}>
+                    <motion.div 
+                      layoutId={`card-${equipment.id}`}
+                      variants={itemVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      transition={{ 
+                        layout: { type: 'spring', stiffness: 200, damping: 25, mass: 0.5 } 
+                      }}
+                      className={`relative flex flex-col h-full bg-white p-6 rounded-2xl border-2 transition-all duration-300 group-hover:-translate-y-1 overflow-hidden ${
+                        isLowStock ? 'border-retro-primary/20 shadow-[0_0_20px_rgba(224,122,95,0.1)]' : 'border-retro-secondary/5 shadow-sm'
+                      }`}
+                    >
                       
                       {/* Quantity Badge */}
                       <div className="flex justify-between items-start mb-4">
-                        <div className={`flex flex-col items-center justify-center min-w-[4rem] py-1 px-2 rounded-xl font-bold text-sm border-2 ${
+                        <motion.div 
+                          layout="position"
+                          className={`flex flex-col items-center justify-center min-w-[4rem] py-1 px-2 rounded-xl font-bold text-sm border-2 ${
                             isLowStock ? 'bg-retro-primary/10 text-retro-primary border-retro-primary/20 animate-pulse' : 'bg-retro-accent/10 text-retro-accent border-retro-accent/20'
-                          }`}>
+                          }`}
+                        >
                           <div className="flex items-center gap-3 mb-1">
                              <button 
                               onClick={(e) => { e.stopPropagation(); handleQuickQuantityChange(equipment, -1); }}
                               className="hover:scale-125 transition-transform"
                             >
-                              <Minus className="w-3 h-3" /> {/* ← X から Minus に変更（rotate-45も削除） */}
+                              <Minus className="w-3 h-3" />
                             </button>
                              <div className="text-xl leading-none">{equipment.quantity}</div>
                              <button 
@@ -450,26 +556,26 @@ const Home: React.FC = () => {
                                <Plus className="w-3 h-3" />
                              </button>
                           </div>
-                          <div className="text-[10px] opacity-60 border-t border-current w-full text-center pt-1">Req: {equipment.requiredQuantity}</div>
-                        </div>
+                          <div className="text-[10px] opacity-60 border-t border-current w-full text-center pt-1">要求数: {equipment.requiredQuantity}</div>
+                        </motion.div>
                         {isLowStock && (
-                          <div className="text-retro-primary" title="在庫が不足しています">
+                          <motion.div layout="position" className="text-retro-primary" title="在庫が不足しています">
                             <AlertTriangle className="w-5 h-5" />
-                          </div>
+                          </motion.div>
                         )}
                       </div>
 
                       <div className="mb-6 flex-grow">
-                        <h3 className="text-xl font-bold text-retro-secondary mb-2 leading-tight">
+                        <motion.h3 layout="position" className="text-xl font-bold text-retro-secondary mb-2 leading-tight">
                           {equipment.name}
-                        </h3>
-                        <p className="text-sm text-retro-secondary/60 line-clamp-3 leading-relaxed">
-                          {equipment.description || 'No description provided.'}
-                        </p>
+                        </motion.h3>
+                        <motion.p layout="position" className="text-sm text-retro-secondary/60 line-clamp-3 leading-relaxed">
+                          {equipment.description || '説明はありません。'}
+                        </motion.p>
                       </div>
 
                       {/* Actions */}
-                      <div className="flex gap-2 pt-4 border-t border-retro-secondary/5">
+                      <motion.div layout="position" className="flex gap-2 pt-4 border-t border-retro-secondary/5">
                         <button 
                           onClick={() => handleEditClick(equipment)} 
                           className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold text-retro-secondary/70 hover:bg-retro-secondary/5 hover:text-retro-secondary transition-colors"
@@ -483,9 +589,9 @@ const Home: React.FC = () => {
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
-                      </div>
-                    </div>
-                  </motion.div>
+                      </motion.div>
+                    </motion.div>
+                  </div>
                 );
               })}
             </AnimatePresence>
@@ -497,12 +603,59 @@ const Home: React.FC = () => {
                 className="col-span-full py-20 flex flex-col items-center justify-center text-retro-secondary/40"
               >
                 <Package className="w-16 h-16 mb-4 opacity-20" />
-                <p className="font-serif text-xl">No items found</p>
-                <p className="text-sm mt-2">Try searching for something else or add a new item.</p>
+                <p className="font-serif text-xl">備品が見つかりませんでした</p>
+                <p className="text-sm mt-2">別のキーワードで検索するか、新しい備品を追加してください。</p>
               </motion.div>
             )}
           </motion.div>
         )}
+
+        {/* Login Modal */}
+        <AnimatePresence>
+          {showLoginModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-retro-secondary/40 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl border-2 border-retro-secondary/5"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-serif text-retro-secondary flex items-center gap-2">
+                    <Lock className="w-6 h-6 text-retro-primary" /> 管理者ログイン
+                  </h2>
+                  <button onClick={() => setShowLoginModal(false)} className="text-retro-secondary/40 hover:text-retro-secondary">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                
+                <p className="text-retro-secondary/60 mb-8 text-sm">
+                  備品の追加・編集・削除を行うには管理者パスワードを入力してください。
+                </p>
+
+                <form onSubmit={handleLogin} className="space-y-6">
+                  <div>
+                    <label className="block text-xs font-bold text-retro-secondary/60 mb-2 uppercase tracking-wider">パスワード</label>
+                    <input
+                      type="password"
+                      autoFocus
+                      placeholder="パスワードを入力..."
+                      className="w-full p-4 bg-retro-bg/30 border-2 border-retro-secondary/10 rounded-xl focus:border-retro-primary focus:outline-none transition-all"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full py-4 bg-retro-secondary text-white rounded-xl font-bold shadow-lg hover:bg-retro-secondary/90 transition-all active:scale-[0.98]"
+                  >
+                    認証する
+                  </button>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

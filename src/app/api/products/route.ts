@@ -1,12 +1,17 @@
 import { NextResponse, NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 
+// Helper to check admin password
+const isAdmin = (request: NextRequest) => {
+  const password = request.headers.get('x-admin-password');
+  return password === process.env.ADMIN_PASSWORD;
+};
+
 // GET all products
 export async function GET() {
   console.log('API: /api/products GET request received.');
   try {
     const products = await prisma.product.findMany();
-    console.log('API: Fetched products:', products);
     return NextResponse.json(products);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -18,6 +23,11 @@ export async function GET() {
 // POST a new product
 export async function POST(request: NextRequest) {
   console.log('API: /api/products POST request received.');
+  
+  if (!isAdmin(request)) {
+    return NextResponse.json({ error: 'Unauthorized: Admin password required' }, { status: 401 });
+  }
+
   try {
     const { name, description, quantity, requiredQuantity } = await request.json();
 

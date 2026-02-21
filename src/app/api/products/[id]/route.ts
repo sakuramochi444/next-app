@@ -1,6 +1,12 @@
 import { NextResponse, NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 
+// Helper to check admin password
+const isAdmin = (request: NextRequest) => {
+  const password = request.headers.get('x-admin-password');
+  return password === process.env.ADMIN_PASSWORD;
+};
+
 // GET a single product by ID
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,6 +27,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 // UPDATE a product by ID
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isAdmin(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   try {
     const { name, description, quantity, requiredQuantity } = await request.json();
@@ -47,6 +57,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 // DELETE a product by ID
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isAdmin(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   try {
     await prisma.product.delete({

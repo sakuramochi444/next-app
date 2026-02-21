@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 備品管理アプリ
 
-## Getting Started
+備品の在庫管理を行うためのWebアプリケーションです。
 
-First, run the development server:
+## デプロイ先
+https://next-aya0oog97-sakuramochis-projects-0675e93b.vercel.app
 
+## 開発期間
+2026年2月10日 〜 2026年2月20日
+
+## スクリーンショット
+1. メインダッシュボード（グリッド表示）
+![スクリーンショット1](images/screenshot1.png)
+
+2. リスト表示への切り替え
+![スクリーンショット2](images/screenshot2.png)
+
+3. 備品登録・編集フォーム
+![スクリーンショット3](images/screenshot3.png)
+
+4. 在庫不足のアラート表示
+![スクリーンショット4](images/screenshot4.png)
+
+5. モバイル表示
+![スクリーンショット5](images/screenshot5.png)
+
+## 主な機能
+- 備品の一覧表示、検索、フィルタリング
+- リスト形式とグリッド形式の表示切り替え
+- 在庫数のインクリメント・デクリメント
+- 備品の追加、編集、削除
+- 在庫不足（要求数未満）のアイテムの強調表示
+
+## 使用技術
+- Next.js 15 (App Router)
+- React 19
+- Prisma
+- PostgreSQL
+- TailwindCSS 4
+- Framer Motion
+
+## セットアップ
+
+1. 依存関係のインストール
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. データベースの設定
+.envファイルを作成し、DATABASE_URLを設定してください。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. データベースの反映
+```bash
+npx prisma generate
+npx prisma db push
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. 開発サーバーの起動
+```bash
+npm run dev
+```
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## ライセンス
+MIT
