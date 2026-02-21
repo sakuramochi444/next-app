@@ -3,7 +3,7 @@
 備品の在庫管理を行うためのWebアプリケーションです。
 
 ## デプロイ先
-https://next-aya0oog97-sakuramochis-projects-0675e93b.vercel.app
+https://next-app-tau-beige.vercel.app
 
 ## 開発期間
 2026年2月10日 〜 2026年2月20日
