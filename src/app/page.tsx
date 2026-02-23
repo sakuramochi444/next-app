@@ -55,25 +55,32 @@ const Home: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('DEBUG: handleLogin called with password:', adminPassword);
     
     try {
+      console.log('DEBUG: Sending fetch request to /api/auth/verify');
       const res = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: adminPassword }),
       });
 
+      console.log('DEBUG: Response status:', res.status, 'ok:', res.ok);
+      
       if (!res.ok) {
+        console.log('DEBUG: Authentication failed');
         toast.error('パスワードが正しくありません');
         setAdminPassword('');
         return;
       }
 
+      console.log('DEBUG: Authentication successful, setting login state');
       localStorage.setItem('adminPassword', adminPassword);
       setIsAdmin(true);
       setShowLoginModal(false);
       toast.success('編集モードになりました');
     } catch (err) {
+      console.error('DEBUG: Error in handleLogin:', err);
       toast.error('ログイン処理に失敗しました');
       setAdminPassword('');
     }
