@@ -53,13 +53,29 @@ const Home: React.FC = () => {
     }
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPassword) {
+    
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPassword }),
+      });
+
+      if (!res.ok) {
+        toast.error('パスワードが正しくありません');
+        setAdminPassword('');
+        return;
+      }
+
       localStorage.setItem('adminPassword', adminPassword);
       setIsAdmin(true);
       setShowLoginModal(false);
       toast.success('編集モードになりました');
+    } catch (err) {
+      toast.error('ログイン処理に失敗しました');
+      setAdminPassword('');
     }
   };
 
